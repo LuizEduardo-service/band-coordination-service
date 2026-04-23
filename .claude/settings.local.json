@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"route\\\\\\\\.startswith\\\\|'upcoming'\\\\|'true'\" \"C:\\\\Users\\\\luiz.cassimiro\\\\Documents\\\\PROJETOS CLAUDE\\\\escala-louvor\\\\frontend\")"
+    ]
+  }
+}
