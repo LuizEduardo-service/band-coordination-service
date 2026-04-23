@@ -1,5 +1,6 @@
 from django.http import Http404
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
@@ -14,7 +15,7 @@ class GroupListView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Group.objects.filter(memberships__user=self.request.user).distinct()
+        return Group.objects.filter(memberships__user=self.request.user, is_active=True).distinct()
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -24,8 +25,9 @@ class GroupListView(generics.ListCreateAPIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-class GroupDetailView(generics.RetrieveUpdateAPIView):
+class GroupDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = GroupSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     lookup_field = 'slug'
     permission_classes = [permissions.IsAuthenticated]
 
@@ -101,3 +103,22 @@ class MemberDetailView(GroupScopedMixin, APIView):
         membership = self.get_object()
         membership.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class GroupAvatarUploadView(GroupScopedMixin, APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, slug):
+        self.check_group_permission(IsGroupAdmin)
+        group = self.get_group()
+
+        if 'avatar' not in request.FILES:
+            return Response({'detail': 'Arquivo "avatar" não fornecido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        avatar_file = request.FILES['avatar']
+        group.avatar = avatar_file
+        group.save()
+
+        serializer = GroupSerializer(group, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)

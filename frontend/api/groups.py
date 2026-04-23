@@ -38,3 +38,15 @@ async def add_member(client: APIClient, slug: str, user_id: int, role: str) -> d
 
 async def remove_member(client: APIClient, slug: str, pk: int) -> None:
     return await client.delete(f'/groups/{slug}/members/{pk}/')
+
+
+async def delete_group(client: APIClient, slug: str) -> None:
+    await client.delete(f'/groups/{slug}/')
+
+
+async def upload_group_avatar(client: APIClient, slug: str, file_bytes: bytes, filename: str = 'avatar.jpg') -> dict:
+    mime = 'image/jpeg' if filename.lower().endswith(('.jpg', '.jpeg')) else 'image/png'
+    return await client.post_multipart(
+        f'/groups/{slug}/avatar/',
+        files={'avatar': (filename, file_bytes, mime)},
+    )

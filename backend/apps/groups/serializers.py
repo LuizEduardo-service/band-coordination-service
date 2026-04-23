@@ -5,11 +5,18 @@ from .models import Group, Membership
 
 class GroupSerializer(serializers.ModelSerializer):
     my_role = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Group
-        fields = ['id', 'name', 'slug', 'description', 'created_at', 'my_role']
-        read_only_fields = ['id', 'slug', 'created_at', 'my_role']
+        fields = ['id', 'name', 'slug', 'description', 'created_at', 'is_active', 'avatar', 'avatar_url', 'my_role']
+        read_only_fields = ['id', 'slug', 'created_at', 'is_active', 'avatar_url', 'my_role']
+
+    def get_avatar_url(self, obj):
+        request = self.context.get('request')
+        if obj.avatar and request:
+            return request.build_absolute_uri(obj.avatar.url)
+        return None
 
     def get_my_role(self, obj):
         request = self.context.get('request')

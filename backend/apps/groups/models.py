@@ -8,6 +8,8 @@ class Group(models.Model):
     slug = models.SlugField(unique=True, blank=True)
     description = models.TextField(blank=True, verbose_name='descrição')
     created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True, verbose_name='ativo')
+    avatar = models.ImageField(upload_to='group_avatars/', null=True, blank=True, verbose_name='avatar')
 
     class Meta:
         verbose_name = 'grupo'

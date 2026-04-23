@@ -1,5 +1,9 @@
 import flet as ft
-from theme import COLORS, SPACING, FONT_SIZES, RADIUS_FIELD, RADIUS_SURFACE, CARD_ELEVATION, outline_border
+from theme import (
+    COLORS, SPACING, FONT_SIZES,
+    RADIUS_FIELD, RADIUS_SURFACE, CARD_ELEVATION, outline_border,
+    ICON_SIZES, MIN_TOUCH_TARGET, SAFE_BOTTOM, FORM_MAX_WIDTH,
+)
 
 
 def ErrorText(message: str = '') -> ft.Text:
@@ -9,7 +13,7 @@ def ErrorText(message: str = '') -> ft.Text:
 def FormField(
     label: str,
     password: bool = False,
-    width: int = 300,
+    width: int | None = None,
     autofocus: bool = False,
     dense: bool = False,
 ) -> ft.TextField:
@@ -18,6 +22,7 @@ def FormField(
         password=password,
         can_reveal_password=password,
         width=width,
+        expand=width is None,
         autofocus=autofocus,
         filled=True,
         dense=dense,
@@ -27,13 +32,16 @@ def FormField(
 
 def PrimaryButton(
     label: str,
-    width: int | None = 300,
+    width: int | None = None,
     *,
     visible: bool | None = None,
+    expand: bool = True,
 ) -> ft.FilledButton:
-    kwargs: dict = {}
+    kwargs: dict = {'height': MIN_TOUCH_TARGET}
     if width is not None:
         kwargs['width'] = width
+    elif expand:
+        kwargs['expand'] = True
     if visible is not None:
         kwargs['visible'] = visible
     return ft.FilledButton(label, **kwargs)
@@ -62,7 +70,7 @@ def EmptyState(message: str, *, icon: str = ft.icons.INBOX_OUTLINED) -> ft.Conta
     return ft.Container(
         content=ft.Column(
             [
-                ft.Icon(icon, size=40, color=COLORS['secondary']),
+                ft.Icon(icon, size=ICON_SIZES['lg'], color=COLORS['secondary']),
                 ft.Text(message, color=COLORS['secondary'], text_align=ft.TextAlign.CENTER),
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -93,39 +101,55 @@ def SurfaceCard(
     return ft.Container(**kwargs)
 
 
-def CenteredCard(content: ft.Control, width: int = 380, padding: int = 40) -> ft.Card:
+def CenteredCard(content: ft.Control, width: int | None = None, padding: int = 40) -> ft.Card:
+    inner_kwargs: dict = {'content': content, 'padding': padding}
+    if width is not None:
+        inner_kwargs['width'] = width
     return ft.Card(
         elevation=CARD_ELEVATION,
-        content=ft.Container(
-            content=content,
-            padding=padding,
-            width=width,
-        ),
+        content=ft.Container(**inner_kwargs),
     )
 
 
 def PageContainer(content: ft.Control, padding: int = 24) -> ft.Container:
     return ft.Container(
         content=content,
-        padding=padding,
+        padding=ft.padding.only(
+            left=padding, right=padding, top=padding, bottom=padding + SAFE_BOTTOM
+        ),
         expand=True,
     )
 
 
 def CenteredForm(content: ft.Control) -> ft.Container:
     return ft.Container(
-        content=CenteredCard(content, width=400, padding=SPACING['xl']),
+        content=ft.Container(
+            content=CenteredCard(content, padding=SPACING['xl']),
+            width=FORM_MAX_WIDTH,
+        ),
         alignment=ft.alignment.center,
         expand=True,
+        padding=ft.padding.symmetric(horizontal=SPACING['md']),
     )
 
 
-def StyledDropdown(label: str, options: list, width: int = 300) -> ft.Dropdown:
+def DangerButton(label: str, *, expand: bool = False) -> ft.FilledButton:
+    kwargs: dict = {
+        'style': ft.ButtonStyle(bgcolor=COLORS['error'], color=ft.colors.WHITE),
+        'height': MIN_TOUCH_TARGET,
+    }
+    if expand:
+        kwargs['expand'] = True
+    return ft.FilledButton(label, **kwargs)
+
+
+def StyledDropdown(label: str, options: list, width: int | None = None) -> ft.Dropdown:
     dropdown_options = [ft.dropdown.Option(text=opt, key=opt) for opt in options]
     return ft.Dropdown(
         label=label,
         options=dropdown_options,
         width=width,
+        expand=width is None,
         filled=True,
         border_radius=RADIUS_FIELD,
     )
