@@ -1,17 +1,22 @@
+import os
 import httpx
 import flet as ft
 from state.app_state import AppState
 
 
 class APIError(Exception):
-    def __init__(self, status_code: int, detail: str):
+    def __init__(self, status_code: int, detail):
         self.status_code = status_code
         self.detail = detail
         super().__init__(f'[{status_code}] {detail}')
 
+    @property
+    def message(self) -> str:
+        return self.detail if isinstance(self.detail, str) else str(self.detail)
+
 
 class APIClient:
-    BASE_URL = 'http://localhost:8000/api/v1'
+    BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api/v1')
 
     def __init__(self, state: AppState, page: ft.Page):
         self._state = state
@@ -42,35 +47,38 @@ class APIClient:
             pass
         return False
 
-    async def _request(self, method: str, path: str, **kwargs) -> httpx.Response:
-        async with httpx.AsyncClient() as client:
-            resp = await client.request(
-                method,
-                f'{self.BASE_URL}{path}',
-                headers=self._headers(),
-                **kwargs,
-            )
+    async def _handle_response(self, resp: httpx.Response) -> httpx.Response:
         if resp.status_code == 401:
-            refreshed = await self._refresh()
-            if refreshed:
-                async with httpx.AsyncClient() as client:
-                    resp = await client.request(
-                        method,
-                        f'{self.BASE_URL}{path}',
-                        headers=self._headers(),
-                        **kwargs,
-                    )
-            if resp.status_code == 401:
-                self._state.clear(self._page)
-                self._page.go('/login')
-                raise APIError(401, 'Sessão expirada.')
+            self._state.clear(self._page)
+            self._page.go('/login')
+            raise APIError(401, 'Sessão expirada.')
         if not resp.is_success:
             try:
-                detail = resp.json().get('detail', resp.text)
+                body = resp.json()
+                detail = body.get('detail', body) if isinstance(body, dict) else body
             except Exception:
                 detail = resp.text
             raise APIError(resp.status_code, detail)
         return resp
+
+    async def _execute_with_retry(self, execute) -> httpx.Response:
+        resp = await execute()
+        if resp.status_code == 401:
+            refreshed = await self._refresh()
+            if refreshed:
+                resp = await execute()
+        return await self._handle_response(resp)
+
+    async def _request(self, method: str, path: str, **kwargs) -> httpx.Response:
+        async def execute():
+            async with httpx.AsyncClient() as client:
+                return await client.request(
+                    method,
+                    f'{self.BASE_URL}{path}',
+                    headers=self._headers(),
+                    **kwargs,
+                )
+        return await self._execute_with_retry(execute)
 
     async def get(self, path: str) -> dict | list:
         resp = await self._request('GET', path)
@@ -89,7 +97,7 @@ class APIClient:
         if self._state.token:
             headers['Authorization'] = f'Bearer {self._state.token}'
 
-        async def do_post():
+        async def execute():
             async with httpx.AsyncClient() as client:
                 return await client.post(
                     f'{self.BASE_URL}{path}',
@@ -98,31 +106,7 @@ class APIClient:
                     data=data or {},
                 )
 
-        resp = await do_post()
-        if resp.status_code == 401:
-            refreshed = await self._refresh()
-            if refreshed:
-                headers['Authorization'] = f'Bearer {self._state.token}'
-                async with httpx.AsyncClient() as client:
-                    resp = await client.post(
-                        f'{self.BASE_URL}{path}',
-                        headers=headers,
-                        files=files,
-                        data=data or {},
-                    )
-            if resp.status_code == 401:
-                self._state.clear(self._page)
-                self._page.go('/login')
-                raise APIError(401, 'Sessão expirada.')
-        if not resp.is_success:
-            try:
-                body = resp.json()
-                detail = body.get('detail', body)
-                if isinstance(detail, dict):
-                    detail = str(detail)
-            except Exception:
-                detail = resp.text
-            raise APIError(resp.status_code, str(detail))
+        resp = await self._execute_with_retry(execute)
         return resp.json()
 
     async def delete(self, path: str) -> None:

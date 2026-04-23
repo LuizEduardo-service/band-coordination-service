@@ -62,6 +62,10 @@ class Invite(models.Model):
     class Meta:
         verbose_name = 'convite'
         verbose_name_plural = 'convites'
+        indexes = [
+            models.Index(fields=['invitee', 'status']),
+            models.Index(fields=['invitee', 'kind', 'status']),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['invitee', 'group'],

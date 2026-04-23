@@ -7,28 +7,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.db.models.functions import Coalesce
-from django.db.models import F, Value, CharField
+from django.db.models import F, Value, CharField, Count
 from apps.groups.models import Group, Membership
 from apps.groups.permissions import IsGroupAdmin, IsGroupMember, user_can_access_event
+from apps.common.mixins import GroupScopedMixin
 from .models import Event, EventMember, Song, EventSong, SongSuggestion
 from .serializers import (
     EventListSerializer, EventDetailSerializer,
     EventMemberSerializer, SongSerializer, EventSongSerializer,
     SongSuggestionCreateSerializer, SongSuggestionSerializer,
 )
-
-
-class GroupScopedMixin:
-    def get_group(self):
-        try:
-            return Group.objects.get(slug=self.kwargs['slug'])
-        except Group.DoesNotExist:
-            raise Http404('Grupo não encontrado.')
-
-    def check_group_permission(self, permission_class):
-        permission = permission_class()
-        if not permission.has_permission(self.request, self):
-            raise PermissionDenied()
 
 
 # --- Events ---
@@ -39,7 +27,10 @@ class EventListView(GroupScopedMixin, APIView):
     def get(self, request, slug):
         self.check_group_permission(IsGroupMember)
         group = self.get_group()
-        events = Event.objects.filter(group=group).select_related('created_by')
+        events = Event.objects.filter(group=group).select_related('created_by').annotate(
+            member_count=Count('event_members', distinct=True),
+            song_count=Count('event_songs', distinct=True),
+        )
 
         upcoming = request.query_params.get('upcoming')
         if upcoming in ['true', 'false']:
@@ -218,13 +209,11 @@ class ParticipationView(GroupScopedMixin, APIView):
             raise PermissionDenied()
 
         user = request.user
-        if event_member.membership_id:
-            if event_member.membership.user_id != user.id:
-                raise Http404('Participação não encontrada.')
-        elif event_member.guest_user_id:
-            if event_member.guest_user_id != user.id:
-                raise Http404('Participação não encontrada.')
-        else:
+        is_owner = (
+            (event_member.membership_id and event_member.membership.user_id == user.id)
+            or (event_member.guest_user_id and event_member.guest_user_id == user.id)
+        )
+        if not is_owner:
             raise Http404('Participação não encontrada.')
 
         participation = request.data.get('participation')
@@ -378,13 +367,27 @@ class SongSuggestionCreateView(GroupScopedMixin, APIView):
         )
 
 
-class SongSuggestionPendingListView(APIView):
+class AdminSongSuggestionMixin:
+    def get_admin_group_ids(self, user):
+        return Membership.objects.filter(user=user, role='admin').values_list('group_id', flat=True)
+
+    def get_pending_suggestion(self, pk, user):
+        try:
+            suggestion = SongSuggestion.objects.select_for_update().get(pk=pk)
+        except SongSuggestion.DoesNotExist:
+            raise Http404('Sugestão não encontrada.')
+        if not Membership.objects.filter(user=user, group=suggestion.group, role='admin').exists():
+            raise PermissionDenied()
+        if suggestion.status != SongSuggestion.STATUS_PENDING:
+            raise ValidationError({'detail': 'Esta sugestão já foi respondida.'})
+        return suggestion
+
+
+class SongSuggestionPendingListView(AdminSongSuggestionMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        admin_group_ids = Membership.objects.filter(
-            user=request.user, role='admin'
-        ).values_list('group_id', flat=True)
+        admin_group_ids = self.get_admin_group_ids(request.user)
         qs = (
             SongSuggestion.objects.filter(status=SongSuggestion.STATUS_PENDING, group_id__in=admin_group_ids)
             .select_related('group', 'suggested_by', 'reviewed_by')
@@ -393,34 +396,23 @@ class SongSuggestionPendingListView(APIView):
         return Response(SongSuggestionSerializer(qs, many=True, context={'request': request}).data)
 
 
-class SongSuggestionPendingCountView(APIView):
+class SongSuggestionPendingCountView(AdminSongSuggestionMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        admin_group_ids = Membership.objects.filter(
-            user=request.user, role='admin'
-        ).values_list('group_id', flat=True)
+        admin_group_ids = self.get_admin_group_ids(request.user)
         n = SongSuggestion.objects.filter(
             status=SongSuggestion.STATUS_PENDING, group_id__in=admin_group_ids
         ).count()
         return Response({'count': n})
 
 
-class SongSuggestionApproveView(APIView):
+class SongSuggestionApproveView(AdminSongSuggestionMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
         with transaction.atomic():
-            try:
-                suggestion = SongSuggestion.objects.select_for_update().get(pk=pk)
-            except SongSuggestion.DoesNotExist:
-                raise Http404('Sugestão não encontrada.')
-            if not Membership.objects.filter(
-                user=request.user, group=suggestion.group, role='admin'
-            ).exists():
-                raise PermissionDenied()
-            if suggestion.status != SongSuggestion.STATUS_PENDING:
-                raise ValidationError({'detail': 'Esta sugestão já foi respondida.'})
+            suggestion = self.get_pending_suggestion(pk, request.user)
             song = Song.objects.create(
                 group=suggestion.group,
                 title=suggestion.title,
@@ -439,21 +431,12 @@ class SongSuggestionApproveView(APIView):
         return Response(SongSuggestionSerializer(suggestion, context={'request': request}).data)
 
 
-class SongSuggestionRejectView(APIView):
+class SongSuggestionRejectView(AdminSongSuggestionMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, pk):
         with transaction.atomic():
-            try:
-                suggestion = SongSuggestion.objects.select_for_update().get(pk=pk)
-            except SongSuggestion.DoesNotExist:
-                raise Http404('Sugestão não encontrada.')
-            if not Membership.objects.filter(
-                user=request.user, group=suggestion.group, role='admin'
-            ).exists():
-                raise PermissionDenied()
-            if suggestion.status != SongSuggestion.STATUS_PENDING:
-                raise ValidationError({'detail': 'Esta sugestão já foi respondida.'})
+            suggestion = self.get_pending_suggestion(pk, request.user)
             suggestion.status = SongSuggestion.STATUS_REJECTED
             suggestion.reviewed_by = request.user
             suggestion.reviewed_at = timezone.now()

@@ -100,10 +100,9 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
                             success_msg.value = f'Convite enviado para {name}.'
                             success_msg.visible = True
                             close_invite_dlg(None)
-                            await load_context()
+                            await refresh_event_members()
                         except APIError as ex:
-                            d = ex.detail
-                            error_msg.value = d if isinstance(d, str) else str(d)
+                            error_msg.value = ex.message
                             error_msg.visible = True
                             page.update()
 
@@ -303,7 +302,7 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
                 })
                 success_msg.value = 'Membro atualizado.'
                 success_msg.visible = True
-                await load_context()
+                await refresh_event_members()
             except APIError as ex:
                 error_msg.value = ex.detail
                 error_msg.visible = True
@@ -317,7 +316,7 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
                 await remove_event_member(client, slug, event_id, member['id'])
                 success_msg.value = 'Membro removido.'
                 success_msg.visible = True
-                await load_context()
+                await refresh_event_members()
             except APIError as ex:
                 error_msg.value = ex.detail
                 error_msg.visible = True
@@ -431,10 +430,13 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
         page.update()
         client = APIClient(state, page)
         try:
-            event = await get_event(client, slug, event_id)
+            event, group_members, event_members_data = await asyncio.gather(
+                get_event(client, slug, event_id),
+                get_members(client, slug),
+                list_event_members(client, slug, event_id),
+            )
             event_title.value = event.get('title', f'Evento {event_id}')
 
-            group_members = await get_members(client, slug)
             group_members_cache = list(group_members)
             dropdown_key_to_id.clear()
             options = []
@@ -444,7 +446,7 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
                 options.append(ft.dropdown.Option(text=key, key=key))
             group_members_dropdown.options = options
 
-            event_members = await list_event_members(client, slug, event_id)
+            event_members = event_members_data
             if not event_members:
                 event_members_list.controls.append(
                     EmptyState('Nenhum membro associado ao evento.', icon=ft.icons.PEOPLE_OUTLINE)
@@ -462,6 +464,23 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
         finally:
             loading.visible = False
             page.update()
+
+    async def refresh_event_members():
+        client = APIClient(state, page)
+        try:
+            members = await list_event_members(client, slug, event_id)
+            event_members_list.controls.clear()
+            if not members:
+                event_members_list.controls.append(
+                    EmptyState('Nenhum membro associado ao evento.', icon=ft.icons.PEOPLE_OUTLINE)
+                )
+            else:
+                for m in members:
+                    event_members_list.controls.append(_build_member_row(m))
+        except APIError as ex:
+            error_msg.value = ex.detail
+            error_msg.visible = True
+        page.update()
 
     page.run_task(load_context)
 

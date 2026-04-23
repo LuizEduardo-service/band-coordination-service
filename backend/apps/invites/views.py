@@ -5,7 +5,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
-from apps.accounts.models import CustomUser, UserProfile
+from apps.accounts.models import CustomUser
+from apps.accounts.utils import get_user_instruments
+from apps.common.mixins import GroupScopedMixin
 from apps.events.models import Event, EventMember
 from apps.groups.models import Group, Membership
 from apps.groups.permissions import IsGroupAdmin
@@ -16,13 +18,6 @@ from .serializers import (
     GroupInviteCreateSerializer,
     EventInviteCreateSerializer,
 )
-
-
-def _user_instruments_list(user):
-    try:
-        return list(user.profile.instruments or [])
-    except UserProfile.DoesNotExist:
-        return []
 
 
 class InviteListView(APIView):
@@ -80,7 +75,7 @@ class InviteAcceptView(APIView):
                 inst = list(inv.instruments or [])
                 if len(inst) < 1:
                     raise ValidationError({'instruments': 'Convite sem instrumentos.'})
-                allowed = set(_user_instruments_list(inv.invitee))
+                allowed = set(get_user_instruments(inv.invitee))
                 if not allowed:
                     raise ValidationError({'detail': 'Cadastre instrumentos no perfil antes de aceitar.'})
                 for i in inst:
@@ -117,19 +112,11 @@ class InviteDeclineView(APIView):
         return Response(InviteSerializer(inv, context={'request': request}).data)
 
 
-class GroupInviteCreateView(APIView):
+class GroupInviteCreateView(GroupScopedMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_group(self):
-        try:
-            return Group.objects.get(slug=self.kwargs['slug'])
-        except Group.DoesNotExist:
-            raise Http404('Grupo não encontrado.')
-
     def post(self, request, slug):
-        perm = IsGroupAdmin()
-        if not perm.has_permission(request, self):
-            raise PermissionDenied()
+        self.check_group_permission(IsGroupAdmin)
         group = self.get_group()
         ser = GroupInviteCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
@@ -161,19 +148,11 @@ class GroupInviteCreateView(APIView):
         return Response(InviteSerializer(inv, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
 
-class EventInviteCreateView(APIView):
+class EventInviteCreateView(GroupScopedMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_group(self):
-        try:
-            return Group.objects.get(slug=self.kwargs['slug'])
-        except Group.DoesNotExist:
-            raise Http404('Grupo não encontrado.')
-
     def post(self, request, slug, pk):
-        perm = IsGroupAdmin()
-        if not perm.has_permission(request, self):
-            raise PermissionDenied()
+        self.check_group_permission(IsGroupAdmin)
         try:
             event = Event.objects.select_related('group').get(pk=pk, group__slug=slug)
         except Event.DoesNotExist:
@@ -200,7 +179,7 @@ class EventInviteCreateView(APIView):
         if EventMember.objects.filter(event=event, membership__user_id=invitee_id).exists():
             raise ValidationError({'detail': 'Usuário já está escalado neste evento.'})
 
-        allowed = set(_user_instruments_list(invitee))
+        allowed = set(get_user_instruments(invitee))
         if not allowed:
             raise ValidationError({'detail': 'O convidado precisa ter instrumentos no perfil.'})
         for i in instruments:

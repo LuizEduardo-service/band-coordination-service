@@ -35,14 +35,14 @@ def build_invites_page(page: ft.Page, state: AppState) -> ft.View:
         try:
             invite_items = await list_invites(client, status='pending')
         except APIError as ex:
-            invite_err = ex.detail if isinstance(ex.detail, str) else str(ex.detail)
+            invite_err = ex.message
         except Exception:
             invite_err = 'Não foi possível carregar convites.'
 
         try:
             suggestions = await list_pending_song_suggestions(client)
         except APIError as ex:
-            sug_err = ex.detail if isinstance(ex.detail, str) else str(ex.detail)
+            sug_err = ex.message
         except Exception:
             sug_err = 'Não foi possível carregar sugestões de músicas.'
 
@@ -89,7 +89,7 @@ def build_invites_page(page: ft.Page, state: AppState) -> ft.View:
                         await load()
                         page.go('/dashboard')
                     except APIError as ex:
-                        error_msg.value = ex.detail if isinstance(ex.detail, str) else str(ex.detail)
+                        error_msg.value = ex.message
                         error_msg.visible = True
                         page.update()
 
@@ -98,7 +98,7 @@ def build_invites_page(page: ft.Page, state: AppState) -> ft.View:
                         await decline_invite(client, pk)
                         await load()
                     except APIError as ex:
-                        error_msg.value = ex.detail if isinstance(ex.detail, str) else str(ex.detail)
+                        error_msg.value = ex.message
                         error_msg.visible = True
                         page.update()
 
@@ -176,7 +176,7 @@ def build_invites_page(page: ft.Page, state: AppState) -> ft.View:
                         await approve_song_suggestion(client, pk)
                         await load()
                     except APIError as ex:
-                        error_msg.value = ex.detail if isinstance(ex.detail, str) else str(ex.detail)
+                        error_msg.value = ex.message
                         error_msg.visible = True
                         page.update()
 
@@ -185,7 +185,7 @@ def build_invites_page(page: ft.Page, state: AppState) -> ft.View:
                         await reject_song_suggestion(client, pk)
                         await load()
                     except APIError as ex:
-                        error_msg.value = ex.detail if isinstance(ex.detail, str) else str(ex.detail)
+                        error_msg.value = ex.message
                         error_msg.visible = True
                         page.update()
 

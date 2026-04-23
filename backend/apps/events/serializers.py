@@ -1,18 +1,11 @@
 from rest_framework import serializers
 from django.utils import timezone
-from apps.accounts.models import UserProfile
 from apps.accounts.serializers import UserSerializer
+from apps.accounts.utils import get_user_instruments
 from apps.groups.serializers import MembershipSerializer
 from apps.groups.models import Membership
 from apps.common.instruments import validate_instruments_list
 from .models import Event, EventMember, Song, EventSong, SongSuggestion
-
-
-def _user_instruments_list(user):
-    try:
-        return list(user.profile.instruments or [])
-    except UserProfile.DoesNotExist:
-        return []
 
 
 class SongSerializer(serializers.ModelSerializer):
@@ -174,7 +167,7 @@ class EventMemberSerializer(serializers.ModelSerializer):
 
         subject_user = membership.user if membership else guest_user
         if subject_user and instruments is not None:
-            allowed = set(_user_instruments_list(subject_user))
+            allowed = set(get_user_instruments(subject_user))
             if not allowed:
                 raise serializers.ValidationError(
                     {'instruments': 'O usuário precisa ter instrumentos cadastrados no perfil.'}
@@ -203,8 +196,8 @@ class EventMemberSerializer(serializers.ModelSerializer):
 
 
 class EventListSerializer(serializers.ModelSerializer):
-    member_count = serializers.IntegerField(source='event_members.count', read_only=True)
-    song_count = serializers.IntegerField(source='event_songs.count', read_only=True)
+    member_count = serializers.IntegerField(read_only=True)
+    song_count = serializers.IntegerField(read_only=True)
     is_past = serializers.SerializerMethodField()
     is_upcoming = serializers.SerializerMethodField()
 

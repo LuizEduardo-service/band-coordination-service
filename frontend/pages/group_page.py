@@ -1,5 +1,5 @@
+import asyncio
 import flet as ft
-from datetime import datetime
 from api.client import APIClient, APIError
 from api.song_suggestions import create_song_suggestion
 from state.app_state import AppState
@@ -8,6 +8,7 @@ from constants import TONALITIES
 from components.app_bar_user import app_bar_user_row
 from theme import COLORS, FONT_SIZES, SPACING, CARD_ELEVATION, RADIUS_CARD, RADIUS_FIELD, outline_border
 from instrument_icons import format_instruments_slugs
+from utils.date_utils import format_event_date
 
 
 def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
@@ -48,16 +49,6 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
     )
 
     events_data: list[dict] = []
-
-    def format_event_date(value: str) -> str:
-        if not value:
-            return '-'
-        try:
-            normalized = value.replace('Z', '+00:00')
-            dt = datetime.fromisoformat(normalized)
-            return dt.strftime('%d/%m/%Y %H:%M')
-        except Exception:
-            return value
 
     async def load_group():
         nonlocal user_is_group_admin
@@ -274,10 +265,10 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
         page.update()
         await load_events()
 
-    page.run_task(load_group)
-    page.run_task(load_events)
-    page.run_task(load_members)
-    page.run_task(load_songs)
+    async def load_all():
+        await asyncio.gather(load_group(), load_events(), load_members(), load_songs())
+
+    page.run_task(load_all)
 
     def go_to_members(_):
         page.go(f'/groups/{slug}/members')

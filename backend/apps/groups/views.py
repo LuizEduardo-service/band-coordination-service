@@ -3,6 +3,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
+from apps.common.mixins import GroupScopedMixin
 from .models import Group, Membership
 from .serializers import GroupSerializer, MembershipSerializer
 from .permissions import IsGroupAdmin, IsGroupMember
@@ -54,19 +55,8 @@ class GroupDetailView(generics.RetrieveUpdateAPIView):
         return Group.objects.get(slug=self.kwargs['slug'])
 
 
-class MemberListView(APIView):
+class MemberListView(GroupScopedMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
-
-    def get_group(self):
-        try:
-            return Group.objects.get(slug=self.kwargs['slug'])
-        except Group.DoesNotExist:
-            raise Http404('Grupo não encontrado.')
-
-    def check_group_permission(self, permission_class):
-        permission = permission_class()
-        if not permission.has_permission(self.request, self):
-            raise PermissionDenied()
 
     def get(self, request, slug):
         self.check_group_permission(IsGroupMember)
@@ -85,19 +75,8 @@ class MemberListView(APIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-class MemberDetailView(APIView):
+class MemberDetailView(GroupScopedMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
-
-    def get_group(self):
-        try:
-            return Group.objects.get(slug=self.kwargs['slug'])
-        except Group.DoesNotExist:
-            raise Http404('Grupo não encontrado.')
-
-    def check_group_permission(self, permission_class):
-        permission = permission_class()
-        if not permission.has_permission(self.request, self):
-            raise PermissionDenied()
 
     def get_object(self):
         try:

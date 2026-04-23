@@ -1,6 +1,5 @@
 import asyncio
 import flet as ft
-from datetime import datetime
 
 from api.client import APIClient, APIError
 from api.events import get_event, update_participation
@@ -10,6 +9,7 @@ from components.styled import PageContainer, ErrorText, SectionTitle
 from components.app_bar_user import app_bar_user_row
 from theme import COLORS, FONT_SIZES, SPACING, RADIUS_SURFACE, outline_border
 from instrument_icons import format_instruments_slugs
+from utils.date_utils import format_event_date
 
 _PARTICIPATION_LABELS = {
     'pending': 'Pendente',
@@ -19,7 +19,6 @@ _PARTICIPATION_LABELS = {
 
 
 def _participation_icon(code: str | None) -> tuple[str, str]:
-    """Retorna (nome_do_icone, cor) para o status de participação."""
     c = (code or '').strip()
     if c == 'confirmed':
         return ft.icons.CHECK_CIRCLE_ROUNDED, COLORS['success']
@@ -27,16 +26,6 @@ def _participation_icon(code: str | None) -> tuple[str, str]:
         return ft.icons.CANCEL_ROUNDED, COLORS['error']
     return ft.icons.SCHEDULE_ROUNDED, COLORS['secondary']
 
-
-def _format_event_date(value: str) -> str:
-    if not value:
-        return '-'
-    try:
-        normalized = value.replace('Z', '+00:00')
-        dt = datetime.fromisoformat(normalized)
-        return dt.strftime('%d/%m/%Y %H:%M')
-    except Exception:
-        return value
 
 
 def build_event_detail_page(page: ft.Page, state: AppState, slug: str, event_id: int) -> ft.View:
@@ -100,12 +89,12 @@ def build_event_detail_page(page: ft.Page, state: AppState, slug: str, event_id:
                 meta_parts.append(f'Criado por {uname}')
         created_at = ev.get('created_at')
         if created_at:
-            meta_parts.append(f'Cadastro: {_format_event_date(created_at)}')
+            meta_parts.append(f'Cadastro: {format_event_date(created_at)}')
 
         body.controls.extend(
             [
                 ft.Text(ev.get('title') or 'Evento', size=FONT_SIZES['subtitle'], weight=ft.FontWeight.W_600),
-                ft.Text(_format_event_date(ev.get('date', '')), size=FONT_SIZES['body'], color=COLORS['secondary']),
+                ft.Text(format_event_date(ev.get('date', '')), size=FONT_SIZES['body'], color=COLORS['secondary']),
                 ft.Text(
                     ev.get('description') or 'Sem descrição.',
                     size=FONT_SIZES['body'],

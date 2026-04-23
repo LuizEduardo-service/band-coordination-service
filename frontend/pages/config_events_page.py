@@ -1,6 +1,7 @@
 import flet as ft
 from datetime import datetime, time
 from api.client import APIClient, APIError
+from utils.date_utils import format_event_date
 from api.events import list_events, create_event, update_event, delete_event
 from authz import require_group_admin
 from state.app_state import AppState
@@ -17,10 +18,6 @@ def _parse_api_datetime(value: str) -> datetime | None:
     except ValueError:
         return None
 
-
-def _format_event_datetime_display(value: str) -> str:
-    dt = _parse_api_datetime(value)
-    return dt.strftime('%d/%m/%Y %H:%M') if dt else (value or '—')
 
 
 def build_config_events_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
@@ -274,7 +271,7 @@ def build_config_events_page(page: ft.Page, state: AppState, slug: str) -> ft.Vi
             [
                 ft.Text(event['title'], weight=ft.FontWeight.W_600),
                 ft.Text(
-                    _format_event_datetime_display(event.get('date', '')),
+                    format_event_date(event.get('date', '')),
                     size=FONT_SIZES['body'],
                     color=COLORS['secondary'],
                 ),
