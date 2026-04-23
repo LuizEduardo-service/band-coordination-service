@@ -1,4 +1,4 @@
-import flet as ft
+﻿import flet as ft
 from datetime import datetime, time
 from api.client import APIClient, APIError
 from utils.date_utils import format_event_date
@@ -113,7 +113,7 @@ def build_config_events_page(page: ft.Page, state: AppState, slug: str) -> ft.Vi
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
 
-    save_button = PrimaryButton('Criar evento', width=None)
+    save_button = PrimaryButton('Criar evento', expand=False)
 
     # --- Dialog ---
     event_dlg = ft.AlertDialog(
@@ -129,7 +129,6 @@ def build_config_events_page(page: ft.Page, state: AppState, slug: str) -> ft.Vi
                 spacing=SPACING['md'],
                 tight=True,
             ),
-            width=420,
             padding=ft.padding.only(top=SPACING['sm']),
         ),
         actions=[
@@ -202,7 +201,7 @@ def build_config_events_page(page: ft.Page, state: AppState, slug: str) -> ft.Vi
             close_dlg()
             await load_events_data()
         except APIError as ex:
-            form_error.value = ex.detail
+            form_error.value = ex.message
             form_error.visible = True
         except Exception:
             form_error.value = 'Erro ao salvar evento.'
@@ -233,7 +232,7 @@ def build_config_events_page(page: ft.Page, state: AppState, slug: str) -> ft.Vi
                 for event in events:
                     events_list.controls.append(_build_event_row(event))
         except APIError as ex:
-            error_msg.value = ex.detail
+            error_msg.value = ex.message
             error_msg.visible = True
         except Exception:
             error_msg.value = 'Erro ao carregar eventos.'
@@ -254,7 +253,7 @@ def build_config_events_page(page: ft.Page, state: AppState, slug: str) -> ft.Vi
                 success_msg.visible = True
                 await load_events_data()
             except APIError as ex:
-                error_msg.value = ex.detail
+                error_msg.value = ex.message
                 error_msg.visible = True
             except Exception:
                 error_msg.value = 'Erro ao remover evento.'

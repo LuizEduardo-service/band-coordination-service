@@ -1,4 +1,4 @@
-import flet as ft
+﻿import flet as ft
 from api.client import APIClient, APIError
 from api.songs import add_song
 from authz import require_group_admin
@@ -56,7 +56,7 @@ def build_add_song_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
             )
             page.go(f'/groups/{slug}/songs')
         except APIError as ex:
-            error_msg.value = ex.detail
+            error_msg.value = ex.message
             error_msg.visible = True
         except Exception:
             error_msg.value = 'Erro ao adicionar música.'

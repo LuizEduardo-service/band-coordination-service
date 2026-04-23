@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import flet as ft
 from api.client import APIClient, APIError
 from api.invites import create_event_invite
@@ -152,8 +152,7 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
                 spacing=SPACING['md'],
                 scroll=ft.ScrollMode.AUTO,
             ),
-            width=400,
-            height=480,
+            padding=ft.padding.only(top=SPACING['sm']),
         ),
         actions=[ft.TextButton('Fechar', on_click=lambda _: close_invite_dlg(_))],
         actions_alignment=ft.MainAxisAlignment.END,
@@ -304,7 +303,7 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
                 success_msg.visible = True
                 await refresh_event_members()
             except APIError as ex:
-                error_msg.value = ex.detail
+                error_msg.value = ex.message
                 error_msg.visible = True
                 page.update()
 
@@ -318,7 +317,7 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
                 success_msg.visible = True
                 await refresh_event_members()
             except APIError as ex:
-                error_msg.value = ex.detail
+                error_msg.value = ex.message
                 error_msg.visible = True
                 page.update()
 
@@ -406,7 +405,7 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
             group_members_dropdown.value = None
             await load_context()
         except APIError as ex:
-            error_msg.value = ex.detail
+            error_msg.value = ex.message
             error_msg.visible = True
         except Exception:
             error_msg.value = 'Erro ao adicionar membro.'
@@ -456,7 +455,7 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
                     event_members_list.controls.append(_build_member_row(member))
             rebuild_add_chips()
         except APIError as ex:
-            error_msg.value = ex.detail
+            error_msg.value = ex.message
             error_msg.visible = True
         except Exception:
             error_msg.value = 'Erro ao carregar membros do evento.'
@@ -478,7 +477,7 @@ def build_config_event_members_page(page: ft.Page, state: AppState, slug: str, e
                 for m in members:
                     event_members_list.controls.append(_build_member_row(m))
         except APIError as ex:
-            error_msg.value = ex.detail
+            error_msg.value = ex.message
             error_msg.visible = True
         page.update()
 

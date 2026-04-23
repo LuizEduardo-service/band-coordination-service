@@ -6,7 +6,7 @@ from api.song_suggestions import pending_song_suggestion_count
 from state.app_state import AppState
 from components.styled import PageContainer, ErrorText, EmptyState, SectionTitle
 from components.app_bar_user import app_bar_user_row
-from theme import COLORS, FONT_SIZES, SPACING, CARD_ELEVATION, RADIUS_CARD
+from theme import COLORS, FONT_SIZES, SPACING, CARD_ELEVATION, RADIUS_CARD, MIN_TOUCH_TARGET, ICON_SIZES
 
 
 def build_dashboard_page(page: ft.Page, state: AppState) -> ft.View:
@@ -18,6 +18,12 @@ def build_dashboard_page(page: ft.Page, state: AppState) -> ft.View:
 
     invite_mail_btn = ft.IconButton(icon=ft.icons.MAIL_OUTLINE, tooltip='Notificações')
     invite_badge = ft.Badge(content=invite_mail_btn, text='', label_visible=False, bgcolor=COLORS['error'])
+    invite_badge_container = ft.Container(
+        content=invite_badge,
+        width=MIN_TOUCH_TARGET,
+        height=MIN_TOUCH_TARGET,
+        alignment=ft.alignment.center,
+    )
 
     async def refresh_invite_badge():
         client = APIClient(state, page)
@@ -51,7 +57,7 @@ def build_dashboard_page(page: ft.Page, state: AppState) -> ft.View:
             await refresh_invite_badge()
         except APIError as ex:
             loading.visible = False
-            error_msg.value = ex.detail
+            error_msg.value = ex.message
             error_msg.visible = True
         page.update()
 
@@ -60,11 +66,31 @@ def build_dashboard_page(page: ft.Page, state: AppState) -> ft.View:
             state.current_group = group
             page.go(f'/groups/{group["slug"]}')
 
+        avatar_url = group.get('avatar_url')
+        if avatar_url:
+            leading = ft.Container(
+                width=40,
+                height=40,
+                border_radius=20,
+                bgcolor=COLORS['surface_container'],
+                clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                content=ft.Image(src=avatar_url, width=40, height=40, fit=ft.ImageFit.COVER),
+            )
+        else:
+            leading = ft.Container(
+                width=40,
+                height=40,
+                border_radius=20,
+                bgcolor=COLORS['surface_container'],
+                content=ft.Icon(ft.icons.MUSIC_NOTE_ROUNDED, color=COLORS['primary'], size=ICON_SIZES['md']),
+                alignment=ft.alignment.center,
+            )
+
         return ft.Card(
             elevation=CARD_ELEVATION,
             content=ft.Container(
                 content=ft.ListTile(
-                    leading=ft.Icon(ft.icons.MUSIC_NOTE_ROUNDED, color=COLORS['primary']),
+                    leading=leading,
                     title=ft.Text(group['name'], weight=ft.FontWeight.W_600),
                     subtitle=ft.Text(
                         group.get('description', '') or 'Toque para abrir',
@@ -146,21 +172,6 @@ def build_dashboard_page(page: ft.Page, state: AppState) -> ft.View:
             ),
             ft.Divider(height=1),
             ft.NavigationDrawerDestination(
-                label='Meus Grupos',
-                icon=ft.icons.GROUPS_OUTLINED,
-                selected_icon=ft.icons.GROUPS,
-            ),
-            ft.NavigationDrawerDestination(
-                label='Notificações',
-                icon=ft.icons.MAIL_OUTLINE,
-                selected_icon=ft.icons.MAIL,
-            ),
-            ft.NavigationDrawerDestination(
-                label='Meu perfil',
-                icon=ft.icons.PERSON_OUTLINED,
-                selected_icon=ft.icons.PERSON,
-            ),
-            ft.NavigationDrawerDestination(
                 label='Criar Novo Grupo',
                 icon=ft.icons.ADD_CIRCLE_OUTLINE,
                 selected_icon=ft.icons.ADD_CIRCLE,
@@ -182,23 +193,45 @@ def build_dashboard_page(page: ft.Page, state: AppState) -> ft.View:
     def on_drawer_change(e):
         if drawer.selected_index == 0:
             close_drawer()
+            page.go('/config/groups/create')
         elif drawer.selected_index == 1:
             close_drawer()
-            page.go('/invites')
+            page.go('/config/groups/settings')
         elif drawer.selected_index == 2:
             close_drawer()
-            page.go('/profile')
-        elif drawer.selected_index == 3:
-            close_drawer()
-            page.go('/config/groups/create')
-        elif drawer.selected_index == 4:
-            close_drawer()
-            page.go('/config/groups/settings')
-        elif drawer.selected_index == 5:
-            close_drawer()
-            handle_logout(None)
+            page.run_task(handle_logout, None)
 
     drawer.on_change = on_drawer_change
+
+    def handle_nav_change(e):
+        idx = e.control.selected_index
+        if idx == 1:
+            page.go('/invites')
+        elif idx == 2:
+            page.go('/profile')
+
+    nav_bar = ft.NavigationBar(
+        destinations=[
+            ft.NavigationDestination(
+                icon=ft.icons.GROUPS_OUTLINED,
+                selected_icon=ft.icons.GROUPS,
+                label='Grupos',
+            ),
+            ft.NavigationDestination(
+                icon=ft.icons.MAIL_OUTLINE,
+                selected_icon=ft.icons.MAIL,
+                label='Notificações',
+            ),
+            ft.NavigationDestination(
+                icon=ft.icons.PERSON_OUTLINE,
+                selected_icon=ft.icons.PERSON,
+                label='Perfil',
+            ),
+        ],
+        selected_index=0,
+        on_change=handle_nav_change,
+        bgcolor=COLORS['surface_container'],
+    )
 
     return ft.View(
         '/dashboard',
@@ -208,12 +241,12 @@ def build_dashboard_page(page: ft.Page, state: AppState) -> ft.View:
                 center_title=False,
                 leading=ft.IconButton(ft.icons.MENU_ROUNDED, on_click=open_drawer, tooltip='Menu'),
                 actions=[
-                    invite_badge,
+                    invite_badge_container,
                     app_bar_user_row(page, state),
-                    ft.TextButton('Sair', on_click=handle_logout),
                 ],
             ),
             PageContainer(content),
         ],
         drawer=drawer,
+        navigation_bar=nav_bar,
     )

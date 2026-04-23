@@ -29,6 +29,12 @@ SPACING = {
     'xl': 40,
 }
 
+BREAKPOINT_MOBILE = 600
+MIN_TOUCH_TARGET = 48
+ICON_SIZES = {'sm': 20, 'md': 24, 'lg': 40, 'hero': 56}
+SAFE_BOTTOM = 24
+FORM_MAX_WIDTH = 480
+
 FONT_SIZES = {
     'title': 28,
     'subtitle': 18,

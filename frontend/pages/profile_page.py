@@ -1,4 +1,4 @@
-import flet as ft
+﻿import flet as ft
 from api.client import APIClient, APIError
 from api.auth import get_me, patch_me, upload_me_photo
 from state.app_state import AppState
@@ -98,7 +98,7 @@ def build_profile_page(page: ft.Page, state: AppState) -> ft.View:
             success_msg.value = 'Perfil salvo.'
             success_msg.visible = True
         except APIError as ex:
-            error_msg.value = str(ex.detail)
+            error_msg.value = str(ex.message)
             error_msg.visible = True
         except Exception:
             error_msg.value = 'Erro ao salvar perfil.'
@@ -135,7 +135,7 @@ def build_profile_page(page: ft.Page, state: AppState) -> ft.View:
             success_msg.value = 'Foto atualizada.'
             success_msg.visible = True
         except APIError as ex:
-            error_msg.value = str(ex.detail)
+            error_msg.value = str(ex.message)
             error_msg.visible = True
         except Exception:
             error_msg.value = 'Erro ao enviar foto.'

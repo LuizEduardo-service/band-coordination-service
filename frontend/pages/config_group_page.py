@@ -1,4 +1,4 @@
-import flet as ft
+﻿import flet as ft
 from api.client import APIClient, APIError
 from api.groups import create_group
 from state.app_state import AppState
@@ -30,7 +30,7 @@ def build_config_group_page(page: ft.Page, state: AppState) -> ft.View:
             data = await create_group(client, name_field.value.strip(), description_field.value.strip())
             page.go('/dashboard')
         except APIError as ex:
-            error_msg.value = ex.detail
+            error_msg.value = ex.message
             error_msg.visible = True
         except Exception:
             error_msg.value = 'Erro ao criar grupo.'

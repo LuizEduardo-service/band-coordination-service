@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import flet as ft
 
 from api.client import APIClient, APIError
@@ -7,7 +7,7 @@ from api.groups import get_group
 from state.app_state import AppState
 from components.styled import PageContainer, ErrorText, SectionTitle
 from components.app_bar_user import app_bar_user_row
-from theme import COLORS, FONT_SIZES, SPACING, RADIUS_SURFACE, outline_border
+from theme import COLORS, FONT_SIZES, SPACING, RADIUS_SURFACE, outline_border, ICON_SIZES
 from instrument_icons import format_instruments_slugs
 from utils.date_utils import format_event_date
 
@@ -63,7 +63,7 @@ def build_event_detail_page(page: ft.Page, state: AppState, slug: str, event_id:
             )
         except APIError as ex:
             loading.visible = False
-            error_msg.value = ex.detail
+            error_msg.value = ex.message
             error_msg.visible = True
             page.update()
             return
@@ -153,7 +153,7 @@ def build_event_detail_page(page: ft.Page, state: AppState, slug: str, event_id:
                             participation_hint.value = 'Participação atualizada.'
                             participation_hint.visible = True
                         except APIError as ex:
-                            participation_hint.value = str(ex.detail)
+                            participation_hint.value = ex.message
                             participation_hint.visible = True
                             participation_hint.color = COLORS['error']
                         except Exception:
@@ -176,7 +176,7 @@ def build_event_detail_page(page: ft.Page, state: AppState, slug: str, event_id:
                         selected=cur == 'confirmed',
                         icon_color=COLORS['secondary'],
                         selected_icon_color=COLORS['success'],
-                        icon_size=26,
+                        icon_size=ICON_SIZES['md'],
                         tooltip='Confirmo (toque de novo para ficar pendente)',
                         on_click=on_thumb_up,
                     )
@@ -186,7 +186,7 @@ def build_event_detail_page(page: ft.Page, state: AppState, slug: str, event_id:
                         selected=cur == 'declined',
                         icon_color=COLORS['secondary'],
                         selected_icon_color=COLORS['error'],
-                        icon_size=26,
+                        icon_size=ICON_SIZES['md'],
                         tooltip='Não poderei (toque de novo para pendente)',
                         on_click=on_thumb_down,
                     )
@@ -198,7 +198,7 @@ def build_event_detail_page(page: ft.Page, state: AppState, slug: str, event_id:
                     )
                 body.controls.append(
                     ft.ListTile(
-                        leading=ft.Icon(picon, color=pcolor, size=26, tooltip=hint),
+                        leading=ft.Icon(picon, color=pcolor, size=ICON_SIZES['md'], tooltip=hint),
                         title=ft.Text(username, weight=ft.FontWeight.W_500),
                         subtitle=ft.Text(sub, color=COLORS['secondary'], size=FONT_SIZES['label'])
                         if sub

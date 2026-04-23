@@ -1,4 +1,4 @@
-import math
+﻿import math
 import flet as ft
 from api.client import APIClient, APIError
 from api.songs import get_songs, delete_song
@@ -98,7 +98,7 @@ def build_config_songs_page(page: ft.Page, state: AppState, slug: str) -> ft.Vie
                             page.update()
                             await load_songs()
                         except APIError as ex:
-                            error_msg.value = ex.detail
+                            error_msg.value = ex.message
                             error_msg.visible = True
                             page.update()
                     return remove_click
@@ -176,7 +176,7 @@ def build_config_songs_page(page: ft.Page, state: AppState, slug: str) -> ft.Vie
             all_songs.extend(songs)
             apply_filter()
         except APIError as ex:
-            error_msg.value = f'Erro ao carregar músicas: {ex.detail}'
+            error_msg.value = f'Erro ao carregar músicas: {ex.message}'
             error_msg.visible = True
             page.update()
 

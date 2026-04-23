@@ -1,4 +1,4 @@
-import flet as ft
+﻿import flet as ft
 from api.client import APIClient, APIError
 from authz import require_group_admin
 from api.events import (
@@ -61,7 +61,7 @@ def build_config_event_songs_page(page: ft.Page, state: AppState, slug: str, eve
                 for event_song in event_songs:
                     event_songs_list.controls.append(_build_song_row(event_song))
         except APIError as ex:
-            error_msg.value = ex.detail
+            error_msg.value = ex.message
             error_msg.visible = True
         except Exception:
             error_msg.value = 'Erro ao carregar setlist do evento.'
@@ -98,7 +98,7 @@ def build_config_event_songs_page(page: ft.Page, state: AppState, slug: str, eve
                 success_msg.visible = True
                 await load_context()
             except APIError as ex:
-                error_msg.value = ex.detail
+                error_msg.value = ex.message
                 error_msg.visible = True
                 page.update()
 
@@ -112,7 +112,7 @@ def build_config_event_songs_page(page: ft.Page, state: AppState, slug: str, eve
                 success_msg.visible = True
                 await load_context()
             except APIError as ex:
-                error_msg.value = ex.detail
+                error_msg.value = ex.message
                 error_msg.visible = True
                 page.update()
 
@@ -171,7 +171,7 @@ def build_config_event_songs_page(page: ft.Page, state: AppState, slug: str, eve
             order_field.value = ''
             await load_context()
         except APIError as ex:
-            error_msg.value = ex.detail
+            error_msg.value = ex.message
             error_msg.visible = True
         except Exception:
             error_msg.value = 'Erro ao adicionar música na setlist.'

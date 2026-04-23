@@ -44,24 +44,22 @@ def app_bar_user_row(page: ft.Page, state: AppState) -> ft.Control:
             content=ft.Text(_initials(u), size=12, weight=ft.FontWeight.W_600),
         )
 
-    label = ft.Container(
-        content=ft.Text(
-            name,
-            size=FONT_SIZES['label'],
-            weight=ft.FontWeight.W_500,
-            max_lines=1,
-            overflow=ft.TextOverflow.ELLIPSIS,
-        ),
-        width=180,
+    label = ft.Text(
+        name,
+        size=FONT_SIZES['label'],
+        weight=ft.FontWeight.W_500,
+        max_lines=1,
+        overflow=ft.TextOverflow.ELLIPSIS,
+        expand=True,
     )
     inner = ft.Row(
         [avatar, label],
         spacing=SPACING['sm'],
-        tight=True,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
     wrapped = ft.Container(
         content=inner,
+        width=120,
         padding=ft.padding.only(left=SPACING['sm'], right=SPACING['sm']),
     )
 

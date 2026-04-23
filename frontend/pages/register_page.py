@@ -1,9 +1,9 @@
-import flet as ft
+﻿import flet as ft
 from api.client import APIClient, APIError
 from api.auth import register_account, login, get_me
 from state.app_state import AppState
 from components.styled import FormField, PrimaryButton, ErrorText, Spacer, CenteredForm
-from theme import COLORS, FONT_SIZES, SPACING
+from theme import COLORS, FONT_SIZES, SPACING, ICON_SIZES
 
 
 def build_register_page(page: ft.Page, state: AppState) -> ft.View:
@@ -42,8 +42,7 @@ def build_register_page(page: ft.Page, state: AppState) -> ft.View:
             state.save(page)
             page.go('/dashboard')
         except APIError as ex:
-            d = ex.detail
-            error_msg.value = d if isinstance(d, str) else str(d)
+            error_msg.value = ex.message
             error_msg.visible = True
         except Exception:
             error_msg.value = 'Erro de conexão. Verifique se o servidor está rodando.'
@@ -59,7 +58,7 @@ def build_register_page(page: ft.Page, state: AppState) -> ft.View:
 
     form_content = ft.Column(
         [
-            ft.Icon(ft.icons.PERSON_ADD_ROUNDED, size=48, color=COLORS['primary']),
+            ft.Icon(ft.icons.PERSON_ADD_ROUNDED, size=ICON_SIZES['hero'], color=COLORS['primary']),
             ft.Text(
                 'Criar conta',
                 size=FONT_SIZES['title'],

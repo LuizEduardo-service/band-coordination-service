@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import flet as ft
 from api.client import APIClient, APIError
 from api.song_suggestions import create_song_suggestion
@@ -36,10 +36,10 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
     loading_songs = ft.ProgressRing(visible=True)
     loading_events = ft.ProgressRing(visible=True)
     events_filter = ft.Dropdown(
-        label='Filtro de eventos',
-        width=220,
+        label='Filtro',
         value='all',
         filled=True,
+        dense=True,
         border_radius=RADIUS_FIELD,
         options=[
             ft.dropdown.Option(key='all', text='Todos'),
@@ -47,6 +47,7 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
             ft.dropdown.Option(key='past', text='Passados'),
         ],
     )
+    events_filter_container = ft.Container(content=events_filter, width=130)
 
     events_data: list[dict] = []
 
@@ -63,7 +64,7 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
             btn_suggest_song.visible = not user_is_group_admin
             render_events_list()
         except APIError as ex:
-            error_msg.value = f"Erro ao carregar grupo: {ex.detail}"
+            error_msg.value = f"Erro ao carregar grupo: {ex.message}"
             error_msg.visible = True
             group_title.value = slug
         page.update()
@@ -101,7 +102,7 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
                     )
         except APIError as ex:
             loading_members.visible = False
-            error_msg.value = f"Erro ao carregar membros: {ex.detail}"
+            error_msg.value = f"Erro ao carregar membros: {ex.message}"
             error_msg.visible = True
         page.update()
 
@@ -137,7 +138,7 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
                     )
         except APIError as ex:
             loading_songs.visible = False
-            error_msg.value = f"Erro ao carregar músicas: {ex.detail}"
+            error_msg.value = f"Erro ao carregar músicas: {ex.message}"
             error_msg.visible = True
         page.update()
 
@@ -162,7 +163,7 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
             render_events_list()
         except APIError as ex:
             loading_events.visible = False
-            error_msg.value = f"Erro ao carregar eventos: {ex.detail}"
+            error_msg.value = f"Erro ao carregar eventos: {ex.message}"
             error_msg.visible = True
         except Exception:
             loading_events.visible = False
@@ -185,7 +186,6 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
         def open_event_songs(_: ft.ControlEvent):
             page.go(f'/groups/{slug}/events/{event_id}/songs')
 
-        desc = (event.get('description') or '').strip() or 'Sem descrição'
         meta = (
             f"{format_event_date(event.get('date', ''))}  ·  "
             f"Membros: {event.get('member_count', 0)}  ·  "
@@ -194,51 +194,44 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
 
         actions_row = ft.Row(
             [
-                ft.FilledTonalButton(
-                    'Detalhes',
+                ft.IconButton(
                     icon=ft.icons.EVENT_ROUNDED,
+                    tooltip='Detalhes',
                     on_click=open_event_detail,
                 ),
-                ft.OutlinedButton(
-                    'Membros',
+                ft.IconButton(
                     icon=ft.icons.GROUP_OUTLINED,
+                    tooltip='Membros',
                     on_click=open_event_members,
                     visible=user_is_group_admin,
                 ),
-                ft.OutlinedButton(
-                    'Setlist',
+                ft.IconButton(
                     icon=ft.icons.QUEUE_MUSIC_ROUNDED,
+                    tooltip='Setlist',
                     on_click=open_event_songs,
                     visible=user_is_group_admin,
                 ),
             ],
-            spacing=SPACING['sm'],
-            wrap=True,
+            spacing=0,
+            tight=True,
         )
 
-        inner = ft.Column(
+        inner = ft.Row(
             [
-                ft.ListTile(
-                    leading=ft.Icon(ft.icons.EVENT_NOTE_ROUNDED, color=COLORS['primary']),
-                    title=ft.Text(event.get('title', 'Evento'), weight=ft.FontWeight.W_600),
-                    subtitle=ft.Column(
-                        [
-                            ft.Text(meta, size=FONT_SIZES['body'], color=COLORS['secondary']),
-                            ft.Text(
-                                desc,
-                                size=FONT_SIZES['body'],
-                                max_lines=3,
-                                overflow=ft.TextOverflow.ELLIPSIS,
-                            ),
-                        ],
-                        spacing=SPACING['xs'],
-                        tight=True,
-                    ),
-                    on_click=open_event_detail,
+                ft.Icon(ft.icons.EVENT_NOTE_ROUNDED, color=COLORS['primary']),
+                ft.Column(
+                    [
+                        ft.Text(event.get('title', 'Evento'), weight=ft.FontWeight.W_600),
+                        ft.Text(meta, size=FONT_SIZES['body'], color=COLORS['secondary']),
+                    ],
+                    spacing=2,
+                    tight=True,
+                    expand=True,
                 ),
-                ft.Container(content=actions_row, padding=ft.padding.only(left=SPACING['md'], right=SPACING['md'], bottom=SPACING['md'])),
+                actions_row,
             ],
-            spacing=0,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=SPACING['sm'],
         )
 
         return ft.Card(
@@ -247,6 +240,8 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
                 content=inner,
                 border_radius=RADIUS_CARD,
                 border=outline_border(),
+                padding=ft.padding.symmetric(horizontal=SPACING['sm'], vertical=SPACING['xs']),
+                on_click=open_event_detail,
             ),
         )
 
@@ -278,18 +273,18 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
 
     events_filter.on_change = handle_events_filter_change
 
-    btn_add_member = PrimaryButton('Gerenciar membros', width=None, visible=False)
+    btn_add_member = PrimaryButton('Gerenciar membros', visible=False, expand=False)
     btn_add_member.on_click = go_to_members
-    btn_add_song = PrimaryButton('Gerenciar músicas', width=None, visible=False)
+    btn_add_song = PrimaryButton('Gerenciar músicas', visible=False, expand=False)
     btn_add_song.on_click = go_to_songs
 
-    suggest_title_f = FormField(label='Título', width=320, dense=True)
-    suggest_artist_f = FormField(label='Artista', width=320, dense=True)
-    suggest_notes_f = FormField(label='Observações (opcional)', width=320, dense=True)
-    suggest_link_f = FormField(label='Link de referência (opcional)', width=320, dense=True)
+    suggest_title_f = FormField(label='Título', dense=True)
+    suggest_artist_f = FormField(label='Artista', dense=True)
+    suggest_notes_f = FormField(label='Observações (opcional)', dense=True)
+    suggest_link_f = FormField(label='Link de referência (opcional)', dense=True)
     suggest_key_dd = ft.Dropdown(
         label='Tonalidade (opcional)',
-        width=320,
+        expand=True,
         filled=True,
         border_radius=RADIUS_FIELD,
         options=[ft.dropdown.Option(text='(opcional)', key='')]
@@ -315,7 +310,7 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
                 tight=True,
                 spacing=SPACING['sm'],
             ),
-            width=360,
+            padding=ft.padding.only(top=SPACING['sm']),
         ),
         actions=[
             ft.TextButton('Cancelar'),
@@ -355,7 +350,7 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
             suggest_link_f.value = ''
             await load_songs()
         except APIError as ex:
-            suggest_dlg_error.value = ex.detail if isinstance(ex.detail, str) else str(ex.detail)
+            suggest_dlg_error.value = ex.message
             suggest_dlg_error.visible = True
             page.update()
         except Exception:
@@ -379,12 +374,8 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
         on_click=open_suggest_dlg,
     )
 
-    manage_events_btn = ft.OutlinedButton(
-        'Gerenciar eventos',
-        on_click=go_to_events,
-        icon=ft.icons.EDIT_CALENDAR_ROUNDED,
-        visible=False,
-    )
+    manage_events_btn = PrimaryButton('Gerenciar eventos', visible=False, expand=False)
+    manage_events_btn.on_click = go_to_events
 
     tab_eventos = ft.Tab(
         text='Eventos',
@@ -392,17 +383,10 @@ def build_group_page(page: ft.Page, state: AppState, slug: str) -> ft.View:
         content=ft.Container(
             content=ft.Column(
                 [
-                    ft.Row(
-                        [manage_events_btn],
-                        alignment=ft.MainAxisAlignment.END,
-                        expand=True,
-                    ),
-                    ft.Row(
-                        [events_filter],
-                        wrap=True,
-                    ),
+                    SectionTitle('Eventos do grupo', trailing=events_filter_container),
                     loading_events,
                     events_list,
+                    manage_events_btn,
                 ],
                 expand=True,
                 spacing=SPACING['md'],

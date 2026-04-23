@@ -1,4 +1,4 @@
-import flet as ft
+﻿import flet as ft
 import asyncio
 from api.client import APIClient, APIError
 from api.groups import add_member, remove_member
@@ -58,8 +58,7 @@ def build_config_members_page(page: ft.Page, state: AppState, slug: str) -> ft.V
                                 page.update()
                                 await load_members()
                             except APIError as ex:
-                                d = ex.detail
-                                error_msg.value = d if isinstance(d, str) else str(d)
+                                error_msg.value = ex.message
                                 error_msg.visible = True
                                 page.update()
                         return add_click
@@ -80,8 +79,7 @@ def build_config_members_page(page: ft.Page, state: AppState, slug: str) -> ft.V
                                 search_results.controls.clear()
                                 page.update()
                             except APIError as ex:
-                                d = ex.detail
-                                error_msg.value = d if isinstance(d, str) else str(d)
+                                error_msg.value = ex.message
                                 error_msg.visible = True
                                 page.update()
                         return invite_click
@@ -89,7 +87,7 @@ def build_config_members_page(page: ft.Page, state: AppState, slug: str) -> ft.V
                     add_btn = PrimaryButton('Adicionar', width=100)
                     add_btn.on_click = make_add_click(user['id'], user['username'])
                     invite_btn = ft.OutlinedButton('Convidar', width=100, on_click=make_invite_click(user['id'], user['username']))
-                    row_inner = ft.Row(
+                    row_inner = ft.Column(
                         [
                             ft.Column(
                                 [
@@ -101,11 +99,11 @@ def build_config_members_page(page: ft.Page, state: AppState, slug: str) -> ft.V
                                         color=COLORS['secondary'],
                                     ),
                                 ],
-                                expand=True,
+                                spacing=SPACING['xs'],
                             ),
-                            ft.Row([add_btn, invite_btn], spacing=SPACING['sm']),
+                            ft.Row([add_btn, invite_btn], spacing=SPACING['sm'], wrap=True),
                         ],
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        spacing=SPACING['sm'],
                     )
                     search_results.controls.append(SurfaceCard(row_inner, padding=SPACING['sm']))
         except Exception as ex:
@@ -152,7 +150,7 @@ def build_config_members_page(page: ft.Page, state: AppState, slug: str) -> ft.V
                                 page.update()
                                 await load_members()
                             except APIError as ex:
-                                error_msg.value = ex.detail
+                                error_msg.value = ex.message
                                 error_msg.visible = True
                                 page.update()
                         return remove_click
@@ -181,7 +179,7 @@ def build_config_members_page(page: ft.Page, state: AppState, slug: str) -> ft.V
                     )
                     members_list.controls.append(SurfaceCard(row_inner, padding=SPACING['sm']))
         except APIError as ex:
-            error_msg.value = f"Erro ao carregar membros: {ex.detail}"
+            error_msg.value = f"Erro ao carregar membros: {ex.message}"
             error_msg.visible = True
         page.update()
 

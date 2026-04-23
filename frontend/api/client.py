@@ -109,5 +109,22 @@ class APIClient:
         resp = await self._execute_with_retry(execute)
         return resp.json()
 
+    async def patch_multipart(self, path: str, files: dict, data: dict | None = None) -> dict:
+        headers: dict = {}
+        if self._state.token:
+            headers['Authorization'] = f'Bearer {self._state.token}'
+
+        async def execute():
+            async with httpx.AsyncClient() as client:
+                return await client.patch(
+                    f'{self.BASE_URL}{path}',
+                    headers=headers,
+                    files=files,
+                    data=data or {},
+                )
+
+        resp = await self._execute_with_retry(execute)
+        return resp.json()
+
     async def delete(self, path: str) -> None:
         await self._request('DELETE', path)
