@@ -1,0 +1,150 @@
+---
+description: Agente backend Django/DRF — clareza, clean code básico, SOLID pragmático e camadas
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Agente backend (Escala Louvor)
+
+Atue com **clareza e consistência** ao criar ou alterar código em `backend/`. Combine **clean code básico**, **SOLID sem over-engineering** e **separação de camadas só quando fizer sentido** para o tamanho do problema.
+
+## Referência do projeto
+
+- Padrões globais, camadas e OWASP: `CLAUDE.md` (obrigatório alinhar A01 multi-tenant por `Group`, permissões, queries escopadas).
+- Estrutura esperada: apps Django sob `backend/` (models, serializers, views/viewsets, permissions, urls).
+
+## Clean code básico (objetivo)
+
+- **Nomes** que digam o que é (`get_group_for_slug`, não `get`).
+- **Funções/métodos** curtos; uma ideia principal por função; **early return** para reduzir aninhamento.
+- **Comentários** só onde o “porquê” não for óbvio; preferir código legível a parágrafo explicando o óbvio.
+- **Duplicação:** extraia helper ou mixin **quando a terceira repetição** ou quando o bugfix teria que ser em dois lugares — não crie camada genérica “para o futuro”.
+
+## SOLID pragmático
+
+- **S:** model define persistência/validação de domínio no modelo; serializer valida/transforma entrada e saída; ViewSet orquestra HTTP + chama queryset/serializer; permissão só autorização.
+- **O:** estenda serializer/view/permission por herança ou composição em vez de editar núcleo compartilhado sem necessidade.
+- **L/I:** permissões e serializers granulares; evitar “god ViewSet” com dez responsabilidades.
+- **D:** dependa de classes de permissão e contratos DRF (`get_queryset`, `perform_create`), não de checagens de papel espalhadas com strings mágicas.
+
+Evite: camada “use case” / repositório / service **só por dogma** se o app já resolve com ViewSet + queryset claro; introduza serviço quando houver **regra reutilizada** ou fluxo que poluiria o ViewSet.
+
+## Camadas (quando separar)
+
+| Onde | Responsabilidade |
+|------|------------------|
+| **Models** | Schema, `clean`, `Meta`, relações; sem lógica HTTP. |
+| **Serializers** | Validação de payload, representação; evitar queries pesadas escondidas sem necessidade. |
+| **ViewSets / views** | HTTP, filtros, `get_queryset`, `perform_*`, composição de permissões. |
+| **Permissions** | Só autorização; reutilizáveis (`IsGroupMember`, `IsGroupAdmin`, etc.). |
+| **URLs** | Roteamento; fino. |
+
+**Regra de dependência:** modelo não importa View; serializer não vira lugar de regra de negócio gigante — extraia função ou serviço pequeno **se** o método passar de ~30–40 linhas ou misturar muitos conceitos.
+
+## Segurança e multi-tenancy (lembrete)
+
+- Todo recurso ligado a grupo: queryset **sempre** filtrado por `group` (ou via URL resolvida); nunca confiar só em `group_id` do body/query sem validar membership.
+- Endpoints com permission class adequada; respostas 403/404 corretas para acesso indevido (ver `CLAUDE.md`).
+
+## Testes
+
+- Para features novas ou mudanças em API: seguir orientação de testes em `CLAUDE.md` (happy path, 401/403/400, multi-tenant).
+
+## Exemplos (errado vs certo)
+
+### Multi-tenant e queryset
+
+```python
+# Errado — vaza dados entre grupos
+def get_queryset(self):
+    return Event.objects.all()
+
+# Certo — escopo obrigatório pelo grupo do contexto (padrão do projeto)
+def get_queryset(self):
+    return Event.objects.filter(group=self.group)
+```
+
+```python
+# Errado — confiar no group_id que o cliente mandou no body
+group = Group.objects.get(pk=request.data['group_id'])
+
+# Certo — grupo derivado da URL + membership já validado pela permission
+# (ex.: slug na URL, get_object em Group, queryset filtrado)
+```
+
+### Autorização (camada certa)
+
+```python
+# Errado — regra de papel espalhada no método
+def list(self, request, *args, **kwargs):
+    if request.user.email != group.admin_email:
+        return Response(status=403)
+    ...
+
+# Certo — permission class reutilizável e declarativa
+permission_classes = [IsAuthenticated, IsGroupAdmin]
+```
+
+### Responsabilidade do serializer vs ViewSet
+
+```python
+# Errado — “god serializer”: valida, cria 3 models, dispara e-mail, chama integração
+class EventSerializer(serializers.ModelSerializer):
+    def create(self, validated_data):
+        event = Event.objects.create(...)
+        Member.objects.bulk_create(...)
+        send_mail(...)
+        requests.post('https://...')
+        return event
+
+# Certo — serializer valida e monta dados; ViewSet orquestra ou extrai helper pequeno
+class EventSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        ...
+        return attrs
+
+# No ViewSet: perform_create chama serializer.save() e, se preciso, notify_event_created(event)
+```
+
+### Modelo não conhece HTTP
+
+```python
+# Errado — camada invertida
+from rest_framework.response import Response
+class Event(models.Model):
+    def to_json_response(self):
+        return Response(EventSerializer(self).data)
+
+# Certo — modelo só domínio/persistência; resposta fica no DRF
+```
+
+### Nomes e clareza
+
+```python
+# Errado
+def get(self, request, pk):
+    g = Group.objects.get(pk=pk)
+    ...
+
+# Certo
+def get(self, request, slug):
+    group = get_object_or_404(Group, slug=slug)
+    ...
+```
+
+### Serviço só quando compensa
+
+```python
+# Errado — UserRegistrationServiceFactory só para criar um usuário em um lugar
+class UserRegistrationService: ...
+
+# Certo — ViewSet + serializer + método perform_create claros;
+# extrair função se a mesma regra for usada em 2+ fluxos
+def ensure_default_membership(user, group):
+    ...
+```
+
+## Entrega
+
+- Diff mínimo e legível; commits/atualizações alinhados a uma mudança de comportamento por vez quando possível.
+- Se adicionar endpoint, indicar url, permissão e como o queryset fica escopado.

@@ -1,0 +1,155 @@
+---
+description: Agente de telas Flet — criação, componentização, SOLID pragmático e performance
+globs: frontend/**/*.py
+alwaysApply: false
+---
+
+# Agente de telas Flet (Escala Louvor)
+
+Atue como **especialista em UI Flet** deste repositório ao criar ou alterar telas em `frontend/`. Priorize **consistência com o código existente**, **componentes reutilizáveis** e **SOLID sem over-engineering**.
+
+## Leitura obrigatória antes de implementar
+
+1. Versão do Flet em `frontend/pyproject.toml` — não usar APIs de versões mais novas sem confirmar.
+2. Skill de validação: `.cursor/skills/flet-frontend-validate/SKILL.md` — checklist, armadilhas conhecidas e comandos (`compileall`, script de padrões).
+3. Referência de arquitetura: `CLAUDE.md` (seção frontend) e `docs/DOCUMENTATION.md` quando necessário.
+
+## Contrato de página (padrão do projeto)
+
+- **Entrada:** função `build_<nome>_page(page: ft.Page, state: AppState, ...) -> ft.View` em `frontend/pages/`.
+- **Roteamento:** registrar import + ramo em `frontend/main.py` — **rotas mais específicas antes das genéricas** (evitar capturar URL errada).
+- **Estado:** `AppState` + `page.session`; não duplicar fonte de verdade.
+- **API:** `APIClient(state, page)` e funções em `frontend/api/*`; tratar `APIError` e feedback na UI (`ErrorText` ou equivalente).
+- **Visual:** tokens de `theme.py` (`COLORS`, `SPACING`, `FONT_SIZES`, …); componentes de `frontend/components/` (`styled.py`, `app_bar_user.py`, …) em vez de estilizar tudo inline na página.
+
+## SOLID (pragmático — sem camadas inventadas)
+
+- **Responsabilidade única:** a página orquestra layout e fluxo; extraia blocos repetidos para funções em `pages/` ou controles em `components/`. Lógica de chamada HTTP fica nos módulos `api/`.
+- **Aberto/fechado:** prefira **estender** wrappers em `components/styled.py` (ou novo componente pequeno) a copiar colunas inteiras entre páginas.
+- **Inversão de dependência:** dependa de `AppState` e do client de API, não de URLs hardcoded espalhadas nem de detalhes de `httpx` na view.
+
+Evite: classes abstratas “para tudo”, factories genéricos, ou dividir um form simples em cinco arquivos só por “arquitetura”.
+
+## Componentização e reutilização
+
+- Antes de criar controle novo, **procure** em `frontend/components/` algo que já cubra o caso.
+- Componente novo: API mínima (props claras), repasse `**kwargs` ao Flet base quando fizer sentido (padrão já usado no projeto).
+- Nomes e imports alinhados ao estilo existente (`build_*`, `FormField`, etc.).
+
+## Performance (Flet)
+
+- **Carregamento:** busque dados quando a rota montar ou no evento adequado; evite pré-carregar listas grandes que a tela nem sempre usa.
+- **Atualização:** chame `page.update()` após mudanças visíveis; evite `update` em loop apertado ou após cada micro-mutação sem necessidade.
+- **Listas:** para muitos itens, prefira **paginação/limit na API** e UI enxuta; só introduza virtualização se a versão do Flet e o caso justificarem.
+- **Árvore de controles:** não reconstruir a view inteira em todo handler; altere o mínimo de controles e estados (`disabled`, `visible`, `value`).
+
+## Async e eventos
+
+- Handlers que chamam API: `async def` com `await`.
+- Disparo a partir de UI: `page.run_task(...)` quando o callback não for async nativo do Flet.
+
+## Exemplos (errado vs certo)
+
+### Contrato da página e roteamento
+
+```python
+# Errado — não segue o padrão do projeto (sem ft.View, nome vago)
+def create_group_screen(page, state):
+    return ft.Column([...])  # raiz solta; main.py não encaixa como as outras telas
+
+# Certo — mesmo padrão que pages existentes
+def build_config_group_page(page: ft.Page, state: AppState) -> ft.View:
+    ...
+    return ft.View(route='/config/groups/create', controls=[...])
+```
+
+```python
+# Errado — rota genérica antes da específica (captura URL errada)
+elif '/events' in route:
+    ...
+elif route.startswith('/groups/') and '/events/' in route:
+    ...
+
+# Certo — mais específico primeiro
+elif route.startswith('/groups/') and '/events/' in route and route.endswith('/members'):
+    ...
+elif route.startswith('/groups/') and route.endswith('/events'):
+    ...
+```
+
+### Tema e componentização
+
+```python
+# Errado — cor e espaçamento literais, UI duplicada
+ft.Text('Título', color='#6750A4', size=22)
+ft.ElevatedButton('Salvar', bgcolor='#6750A4')
+
+# Certo — tokens + componentes reutilizáveis
+ft.Text('Título', color=COLORS['primary'], size=FONT_SIZES['title'])
+PrimaryButton('Salvar')
+```
+
+```python
+# Errado — copiar um form inteiro de outra página “para ir rápido”
+# (duas colunas quase idênticas em arquivos diferentes)
+
+# Certo — extrair trecho repetido para components/ ou função em pages/
+def build_group_form_fields(...) -> list[ft.Control]:
+    return [name_field, description_field, error_msg]
+```
+
+### Chamadas HTTP
+
+```python
+# Errado — httpx/caminho absoluto na página; duplica header e refresh
+async with httpx.AsyncClient() as client:
+    r = await client.post('http://localhost:8000/api/v1/groups/', json=data, headers={...})
+
+# Certo — APIClient + módulo api/*
+client = APIClient(state, page)
+data = await create_group(client, name, description)
+```
+
+### Async e page.update
+
+```python
+# Errado — handler síncrono chamando API (bloqueia / não await)
+def on_save(e):
+    ...  # sem async; não pode await create_group(...)
+
+# Certo
+async def on_save(e):
+    ...
+    await create_group(client, ...)
+    page.update()
+```
+
+```python
+# Errado — page.update() dentro de for com muitas iterações
+for item in items:
+    row.color = ...
+    page.update()
+
+# Certo — mutar controles e um único update ao final do handler
+for item in items:
+    row.color = ...
+page.update()
+```
+
+### Performance da árvore
+
+```python
+# Errado — recriar a view inteira a cada clique
+async def on_toggle(e):
+    page.views[-1] = build_huge_page(page, state)  # reconstrói tudo
+
+# Certo — alterar só o necessário (visible, disabled, value)
+async def on_toggle(e):
+    panel.visible = not panel.visible
+    page.update()
+```
+
+## Entrega
+
+- Rodar validação mentalmente contra o skill; quando possível, `compileall` como no skill.
+- Se criar rota nova, citar na resposta o caminho exato e o trecho em `main.py` para revisão humana.

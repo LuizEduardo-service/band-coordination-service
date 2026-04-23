@@ -1,0 +1,148 @@
+---
+description: Segurança — OWASP, auth, multi-tenant, API, sessão e telas Flet; usar skill appsec-escala-louvor
+globs: backend/**/*.py,frontend/**/*.py
+alwaysApply: false
+---
+
+# Agente de segurança (Escala Louvor)
+
+Ao editar **backend** ou **frontend** (`frontend/**/*.py`), trate mudanças como potencialmente **sensíveis a segurança**.
+
+1. **Leia e siga** o skill `.cursor/skills/appsec-escala-louvor/SKILL.md` — checklist OWASP, multi-tenant, JWT/sessão, **fragilidades de UI Flet** (inputs, erros, logs), configuração e dependências.
+2. **Alinhe** com `CLAUDE.md` (A01 queries escopadas, permissões, CORS/secrets em prod).
+3. **Corrija** fragilidades com **diff mínimo** e padrões já usados no projeto; evite over-engineering.
+4. Para **auditoria ampla** (Docker, CI, settings, infra), invoque explicitamente o skill na conversa mesmo fora destes globs.
+
+**Telas e componentes** (`frontend/pages`, `frontend/components`): validação na UI não substitui o backend; evitar vazamento de erro bruto, tokens em log e segredos no cliente (detalhes no skill).
+
+## Exemplos (errado vs certo)
+
+### A01 — controle de acesso e tenant
+
+```python
+# Errado — cliente escolhe o grupo; membro de A pode mandar group_id de B
+def perform_create(self, serializer):
+    group_id = self.request.data.get('group_id')
+    group = Group.objects.get(pk=group_id)
+    serializer.save(group=group)
+
+# Certo — grupo vem do contexto autorizado (URL, objeto pai, queryset já restrito)
+def perform_create(self, serializer):
+    serializer.save(group=self.group)
+```
+
+```python
+# Errado — objeto de outro tenant se o pk vazar
+def get_object(self):
+    return Event.objects.get(pk=self.kwargs['pk'])
+
+# Certo — get_queryset já filtrou por group; get_object() usa esse queryset
+def get_queryset(self):
+    return Event.objects.filter(group=self.group)
+```
+
+### Segredos e configuração
+
+```python
+# Errado — segredo versionado ou padrão inseguro em produção
+SECRET_KEY = 'django-insecure-chave-fixa'
+DEBUG = True
+ALLOWED_HOSTS = ['*']
+
+# Certo — env em produção, DEBUG False, hosts explícitos (ver settings do projeto)
+SECRET_KEY = os.environ['SECRET_KEY']
+DEBUG = os.environ.get('DJANGO_DEBUG', '0') == '1'
+ALLOWED_HOSTS = os.environ['ALLOWED_HOSTS'].split(',')
+```
+
+### Frontend — cliente não guarda segredo
+
+```python
+# Errado
+STRIPE_SECRET = 'sk_live_...'  # qualquer segredo de API no pacote Flet
+
+# Certo — sem chaves secretas no repo cliente; apenas URL pública/base e tokens de sessão do usuário
+```
+
+```python
+# Errado — BASE_URL só dev embutido sem opção de ambiente
+BASE_URL = 'http://localhost:8000/api/v1'
+
+# Certo — configurável por ambiente quando necessário (build/dev/prod), sem credenciais no arquivo
+```
+
+### Sessão e tokens
+
+```python
+# Errado — logar token em claro
+logger.info('refresh=%s', refresh_token)
+
+# Certo — não registrar tokens; em erro, mensagem genérica para o usuário, detalhe só em DEBUG controlado
+```
+
+### CORS e origem
+
+```python
+# Errado — produção aberta para qualquer origem
+CORS_ALLOW_ALL_ORIGINS = True
+
+# Certo — whitelist explícita de origens em prod (ver CLAUDE.md / settings produção)
+```
+
+### Validação de entrada (evitar injeção / dados inválidos)
+
+```python
+# Errado — SQL ou raw sem parametrização
+Event.objects.raw(f"SELECT * FROM events_event WHERE name = '{name}'")
+
+# Certo — ORM parametrizado
+Event.objects.filter(name=name)
+```
+
+### Frontend (Flet) — erros e vazamento
+
+```python
+# Errado — exibir corpo bruto da API ou traceback ao usuário
+except APIError as ex:
+    error_msg.value = str(ex) + getattr(resp, 'text', '')  # pode vazar detalhe interno
+
+# Certo — mensagem controlada; detalhe técnico só em modo debug explícito
+except APIError as ex:
+    error_msg.value = ex.detail if ex.detail else 'Não foi possível concluir a operação.'
+```
+
+```python
+# Errado — depender só da UI para “esconder” ação privilegiada
+if state.user.get('role') == 'admin':
+    delete_btn.visible = True
+# (API ainda pode aceitar DELETE se não houver permission no backend)
+
+# Certo — UI só orienta UX; autorização real permanece no DRF (skill + backend)
+```
+
+### Frontend — credenciais e depuração
+
+```python
+# Errado
+print('token', state.token)
+logging.debug('refresh=%s', state.refresh_token)
+
+# Certo — não logar tokens/senha; usar fluxo de erro genérico ou breakpoint local sem commit
+```
+
+```python
+# Errado — desabilitar verificação TLS em cliente HTTP
+httpx.AsyncClient(verify=False)
+
+# Certo — manter verify=True (padrão) em ambientes reais
+```
+
+### Frontend — entrada perigosa
+
+```python
+# Errado — executar conteúdo vindo da API ou do usuário
+exec(user_input)
+eval(api_payload['formula'])
+
+# Certo — tratar dados como dados; lógica fixa no código ou validação estrita no backend
+```

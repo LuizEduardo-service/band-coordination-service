@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(poetry *)",
+      "Bash(python *)",
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Edit(.claude)",
+      "Read"
+    ],
+    "defaultMode": "plan"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | grep -E '\\.(py|ts|js)$' && echo 'Python/JS file modified' || true",
+            "statusMessage": "Checking file changes..."
+          }
+        ]
+      }
+    ]
+  },
+  "plansDirectory": ".claude/plans"
+}

@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "escala-louvor-frontend"
+version = "0.1.0"
+description = "Worship band scheduling app — Flet UI"
+authors = ["Luiz Cassimiro <luiz.cassimiro@grupolclog.com.br>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+flet = "^0.21"
+httpx = "^0.27"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

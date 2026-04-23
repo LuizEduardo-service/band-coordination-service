@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "escala-louvor"
+version = "0.1.0"
+description = "Worship band scheduling system — Django REST API"
+authors = ["Luiz Cassimiro <luiz.cassimiro@grupolclog.com.br>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+django = "^4.2"
+djangorestframework = "^3.14"
+djangorestframework-simplejwt = "^5.3"
+django-cors-headers = "^4.3"
+python-decouple = "^3.8"
+psycopg2-binary = "^2.9"
+pillow = "^12.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+pytest-django = "^4.7"
+django-stubs = "^4.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
