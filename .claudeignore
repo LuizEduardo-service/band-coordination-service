@@ -1,0 +1,39 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Poetry lock files (deterministic but verbose, not useful for Claude)
+poetry.lock
+
+# Database
+backend/db.sqlite3
+*.db
+
+# Migrations (auto-generated, noisy — read models.py instead)
+backend/apps/*/migrations/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Git internals
+.git/
+
+# Cursor cache
+.cursor/
+
+# Editor / OS
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Build / dist
+dist/
+build/
+*.egg-info/
